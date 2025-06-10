@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 from collections import Counter
 import random
 
@@ -48,6 +47,12 @@ st.markdown("---")
 st.subheader('Ultimos 5 jogos da Furia')
 freq(bans_5series, 'Bans Furia')
 freq(picks_5series, 'Picks & Sobras Furia')
+
+st.markdown("---")
+st.subheader('Probabilidades sugeridas')
+st.subheader('Ultimos 5 jogos da Furia (sugerido)')
+st.text('BANS FURIA\nAscent - 100% \nPearl - 60% \nHaven - 20%')
+st.text('PICKS FURIA\nSplit - 60%^\nLotus - 60%\nIcebox - 20%\nPearl - 60%')
 
 MAP_POOL = ['Ascent', 'Pearl', 'Split', 'Lotus', 'Icebox', 'Sunset', 'Haven']
 st.sidebar.header('⚙️ Configurações da Simulação')
