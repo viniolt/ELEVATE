@@ -10,7 +10,6 @@ st.header('Análise de frequência dos mapas nos últimos 3 jogos')
 st.write('Análise baseada nos últimos 3 confrontos de cada time para a MD3 do VCB.')
 st.markdown("---")
 
-st.subheader('Furia - Últimos 3 jogos')
 bans = ['Ascent', 'Pearl', 'Ascent', 'Pearl', 'Ascent', 'Pearl']
 picks = ['Split', 'Lotus', 'Split', 'Lotus', 'Icebox']
 
