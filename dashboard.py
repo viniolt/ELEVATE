@@ -74,6 +74,14 @@ st.sidebar.write("**Probabilidade de Ban**")
 for mapa in MAP_POOL:
     # Valores padrão para os sliders
     default_value = 50 if mapa in ['Pearl', 'Ascent'] else 10
+    if mapa in ['Pearl']:
+        default_value = 60
+    elif mapa in ['Ascent']:
+        default_value = 100
+    elif mapa in ['Haven']:
+        default_value = 20
+    else:
+        default_value = 0
     furia_ban_probs[mapa] = st.sidebar.slider(f'Ban {mapa}', 0, 100, default_value) / 100.0
 
 furia_pick_probs = {}
