@@ -32,7 +32,6 @@ def freq (dados, titulo):
     st.subheader(f"**{titulo}**")
     st.bar_chart(df['Frequência'])
 
-st.markdown("---")
 st.subheader('Últimos 3 jogos da Furia')
 freq(bans, 'Bans Furia')
 freq(picks, 'Picks & Sobras Furia')
