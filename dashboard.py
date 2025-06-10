@@ -96,7 +96,7 @@ for mapa in MAP_POOL:
 
 # --- Configurações da Simulação ---
 st.sidebar.subheader('Parâmetros da Simulação')
-N = st.sidebar.number_input('Número de Simulações:', min_value=100, max_value=10000, value=1000, step=100)
+N = st.sidebar.number_input('Número de Simulações:', min_value=100, max_value=50000, value=10000, step=100)
 
 
 # --- Lógica da Simulação ---
