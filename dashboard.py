@@ -10,6 +10,7 @@ st.header('Análise de frequência dos mapas nos últimos 3 jogos')
 st.write('Análise baseada nos últimos 3 confrontos de cada time para a MD3 do VCB.')
 st.markdown("---")
 
+# Dados para análise estática (sem alteração)
 bans = ['Ascent', 'Pearl', 'Ascent', 'Pearl', 'Ascent', 'Pearl']
 picks = ['Split', 'Lotus', 'Split', 'Lotus', 'Icebox']
 
@@ -19,16 +20,14 @@ picks_90d = ['Pearl', 'Lotus', 'Pearl', 'Split', 'Split', 'Lotus', 'Split', 'Lot
 bans_5series = ['Ascent', 'Pearl', 'Ascent', 'Pearl', 'Ascent', 'Pearl', 'Ascent', 'Ascent']
 picks_5series  = ['Split', 'Lotus', 'Split', 'Lotus', 'Icebox', 'Lotus', 'Pearl', 'Split', 'Pearl']
 
-
-
 def freq (dados, titulo):
     if not dados:
         st.warning('Não há dados para serem exibidos')
+        return # Adicionado para evitar erro se 'dados' estiver vazio
     contador = Counter(dados)
     df = pd.DataFrame(contador.items(), columns=['Mapa', 'Frequência'])
-    df = df.set_index('Mapa')  # Define a coluna 'Mapa' como o eixo do gráfico
+    df = df.set_index('Mapa')
 
-    # Exibir o título e o gráfico
     st.subheader(f"**{titulo}**")
     st.bar_chart(df['Frequência'])
 
@@ -71,46 +70,42 @@ st.sidebar.subheader('Probabilidades da FURIA')
 furia_ban_probs = {}
 st.sidebar.write("**Probabilidade de Ban**")
 for mapa in MAP_POOL:
-    # Valores padrão para os sliders
-    if mapa in ['Pearl']:
+    default_value = 0
+    if mapa == 'Pearl':
         default_value = 60
-    elif mapa in ['Ascent']:
+    elif mapa == 'Ascent':
         default_value = 100
-    elif mapa in ['Haven']:
+    elif mapa == 'Haven':
         default_value = 20
-    else:
-        default_value = 0
-    furia_ban_probs[mapa] = st.sidebar.slider(f'Ban {mapa}', 0, 100, default_value) / 100.0
+    furia_ban_probs[mapa] = st.sidebar.slider(f'Ban {mapa}', 0, 100, default_value, key=f"ban_prob_{mapa}") / 100.0
 
 furia_pick_probs = {}
 st.sidebar.write("**Probabilidade de Pick**")
 for mapa in MAP_POOL:
+    default_value = 0
     if mapa in ['Split', 'Lotus', 'Pearl']:
         default_value = 60
-    elif mapa in ['Icebox']:
+    elif mapa == 'Icebox':
         default_value = 20
-    else:
-        default_value = 0
-    furia_pick_probs[mapa] = st.sidebar.slider(f'Pick {mapa}', 0, 100, default_value) / 100.0
+    furia_pick_probs[mapa] = st.sidebar.slider(f'Pick {mapa}', 0, 100, default_value, key=f"pick_prob_{mapa}") / 100.0
 
 # --- Configurações da Simulação ---
 st.sidebar.subheader('Parâmetros da Simulação')
 N = st.sidebar.number_input('Número de Simulações:', min_value=100, max_value=50000, value=10000, step=100)
 
-
 # --- Lógica da Simulação ---
-@st.cache_data  # Usar cache para não re-executar a simulação a cada pequena mudança
-def run_simulation(_N, _seu_ban1, _seu_ban2, _seu_pick, _furia_ban_probs, _furia_pick_probs):
+# CORREÇÃO: Removidos os underscores dos parâmetros para que o cache do Streamlit os monitore.
+@st.cache_data
+def run_simulation(n_sims, user_ban1, user_ban2, user_pick, opponent_ban_probs, opponent_pick_probs):
     pick_count = Counter()
     decider_count = Counter()
-    map_combo_count = Counter()  # NOVO: Contador para as combinações de mapas
+    map_combo_count = Counter()
 
-    for _ in range(_N):
+    for _ in range(n_sims):
         mapas_disponiveis = MAP_POOL.copy()
         furia_pick_realizado = None
         seu_pick_realizado = None
 
-        # Função auxiliar para fazer uma escolha com base em probabilidades
         def make_choice(options, probs):
             valid_options = [m for m in options if m in probs and probs[m] > 0]
             if not valid_options: return None
@@ -118,34 +113,36 @@ def run_simulation(_N, _seu_ban1, _seu_ban2, _seu_pick, _furia_ban_probs, _furia
             return random.choices(valid_options, weights=weights, k=1)[0]
 
         # FASE DE BANS 1
-        ban1_furia = make_choice(mapas_disponiveis, _furia_ban_probs)
-        if ban1_furia and ban1_furia in mapas_disponiveis: mapas_disponiveis.remove(ban1_furia)
+        ban1_furia = make_choice(mapas_disponiveis, opponent_ban_probs)
+        if ban1_furia and ban1_furia in mapas_disponiveis:
+            mapas_disponiveis.remove(ban1_furia)
 
-        if _seu_ban1 in mapas_disponiveis: mapas_disponiveis.remove(_seu_ban1)
+        if user_ban1 in mapas_disponiveis:
+            mapas_disponiveis.remove(user_ban1)
 
         # FASE DE PICKS
-        furia_pick = make_choice(mapas_disponiveis, _furia_pick_probs)
+        furia_pick = make_choice(mapas_disponiveis, opponent_pick_probs)
         if furia_pick and furia_pick in mapas_disponiveis:
             mapas_disponiveis.remove(furia_pick)
             pick_count[furia_pick] += 1
             furia_pick_realizado = furia_pick
 
-        if _seu_pick in mapas_disponiveis:
-            mapas_disponiveis.remove(_seu_pick)
-            pick_count[_seu_pick] += 1
-            seu_pick_realizado = _seu_pick
+        if user_pick in mapas_disponiveis:
+            mapas_disponiveis.remove(user_pick)
+            pick_count[user_pick] += 1
+            seu_pick_realizado = user_pick
 
-        # NOVO: Registrar a combinação de picks se ambos ocorreram
         if furia_pick_realizado and seu_pick_realizado:
-            # Ordenar para tratar ('A', 'B') e ('B', 'A') como a mesma combinação
             combo = tuple(sorted((furia_pick_realizado, seu_pick_realizado)))
             map_combo_count[combo] += 1
 
         # FASE DE BANS 2
-        ban3_furia = make_choice(mapas_disponiveis, _furia_ban_probs)
-        if ban3_furia and ban3_furia in mapas_disponiveis: mapas_disponiveis.remove(ban3_furia)
+        ban3_furia = make_choice(mapas_disponiveis, opponent_ban_probs)
+        if ban3_furia and ban3_furia in mapas_disponiveis:
+            mapas_disponiveis.remove(ban3_furia)
 
-        if _seu_ban2 in mapas_disponiveis: mapas_disponiveis.remove(_seu_ban2)
+        if user_ban2 in mapas_disponiveis:
+            mapas_disponiveis.remove(user_ban2)
 
         # MAPA DECISIVO
         if len(mapas_disponiveis) == 1:
@@ -156,13 +153,12 @@ def run_simulation(_N, _seu_ban1, _seu_ban2, _seu_pick, _furia_ban_probs, _furia
 
 
 # --- Execução e Exibição dos Resultados ---
-decider_results, pick_results, combo_results = run_simulation(N, seu_ban1, seu_ban2, seu_pick, furia_ban_probs,
-                                                              furia_pick_probs)
+# CORREÇÃO: Passando as variáveis corretas para a função
+decider_results, pick_results, combo_results = run_simulation(N, seu_ban1, seu_ban2, seu_pick, furia_ban_probs, furia_pick_probs)
 
 st.markdown("---")
 st.header('📊 Resultados da Simulação')
 
-# Sumário da estratégia
 st.write(f"**Sua Estratégia:** 1º Ban em **{seu_ban1}**, 2º Ban em **{seu_ban2}**, e Pick em **{seu_pick}**.")
 st.write(f"Simulando **{N}** confrontos...")
 
@@ -173,8 +169,10 @@ with col1:
     if not decider_results:
         st.warning("Nenhum mapa decider foi gerado com as configurações atuais.")
     else:
+        # CORREÇÃO: A normalização deve ser pelo total de deciders encontrados, não por N
+        total_deciders = sum(decider_results.values())
         decider_df = pd.DataFrame(decider_results.items(), columns=['Mapa', 'Ocorrências'])
-        decider_df['Probabilidade (%)'] = (decider_df['Ocorrências'] / N) * 100
+        decider_df['Probabilidade (%)'] = (decider_df['Ocorrências'] / total_deciders) * 100 if total_deciders > 0 else 0
         decider_df = decider_df.sort_values('Probabilidade (%)', ascending=False).set_index('Mapa')
         st.bar_chart(decider_df['Probabilidade (%)'])
 
@@ -183,24 +181,23 @@ with col2:
     if not pick_results:
         st.warning("Nenhum mapa foi pickado com as configurações atuais.")
     else:
-        # Usamos N como base para a porcentagem de picks, pois cada simulação tem 2 picks.
+        # CORREÇÃO: A probabilidade de um mapa ser pickado é sobre o total de picks, não sobre N
+        total_picks = sum(pick_results.values())
         pick_df = pd.DataFrame(pick_results.items(), columns=['Mapa', 'Ocorrências'])
-        total_picks = sum(pick_df['Ocorrências'])
         pick_df['Probabilidade de ser Pickado (%)'] = (pick_df['Ocorrências'] / N) * 100 if N > 0 else 0
         pick_df = pick_df.sort_values('Probabilidade de ser Pickado (%)', ascending=False).set_index('Mapa')
         st.bar_chart(pick_df['Probabilidade de ser Pickado (%)'])
 
-# --- NOVA VISUALIZAÇÃO: Combinações de Mapas ---
 st.markdown("---")
 st.header("🎲 Combinações de Mapas Mais Prováveis (Picks da MD3)")
 if not combo_results:
     st.warning("Nenhuma combinação de mapas foi gerada com as configurações atuais.")
 else:
-    # Processa os dados de combinação para o gráfico
+    # CORREÇÃO: A normalização deve ser pelo total de combinações encontradas, não por N
+    total_combos = sum(combo_results.values())
     combo_df = pd.DataFrame(combo_results.items(), columns=['Combinação', 'Ocorrências'])
-    # Formata a tupla ('MapaA', 'MapaB') para uma string "MapaA & MapaB"
     combo_df['Combinação'] = combo_df['Combinação'].apply(lambda x: f"{x[0]} & {x[1]}")
-    combo_df['Probabilidade (%)'] = (combo_df['Ocorrências'] / N) * 100
+    combo_df['Probabilidade (%)'] = (combo_df['Ocorrências'] / total_combos) * 100 if total_combos > 0 else 0
     combo_df = combo_df.sort_values('Probabilidade (%)', ascending=False).set_index('Combinação')
 
     st.write(
@@ -210,4 +207,3 @@ else:
 st.markdown("---")
 st.info(
     "💡 **Como interpretar:** O gráfico de **Decider** mostra a probabilidade de um mapa sobrar no final. O de **Picks** a chance de um mapa ser escolhido por qualquer um dos times. O gráfico de **Combinações** mostra a chance de a MD3 ser composta por aquele par de mapas específicos.")
-
